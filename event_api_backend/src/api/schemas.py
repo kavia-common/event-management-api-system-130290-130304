@@ -7,41 +7,6 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
 
-# PUBLIC_INTERFACE
-class Token(BaseModel):
-    """JWT token response."""
-    access_token: str = Field(..., description="JWT access token")
-    token_type: str = Field(default="bearer", description="Token type")
-
-
-# PUBLIC_INTERFACE
-class UserBase(BaseModel):
-    """Base user fields."""
-    email: EmailStr = Field(..., description="User email address")
-    full_name: Optional[str] = Field(default=None, description="Full name of the user")
-
-
-class UserCreate(UserBase):
-    """Request schema for user registration."""
-    password: str = Field(..., min_length=8, description="Strong password")
-
-
-class UserLogin(BaseModel):
-    """Request schema for user login."""
-    email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., min_length=8, description="User password")
-
-
-class UserOut(UserBase):
-    """Response schema for user data."""
-    id: int = Field(..., description="User identifier")
-    is_active: bool = Field(..., description="Whether the user is active")
-    created_at: datetime = Field(..., description="Creation timestamp")
-
-    class Config:
-        from_attributes = True
-
-
 # Event schemas
 # PUBLIC_INTERFACE
 class EventBase(BaseModel):

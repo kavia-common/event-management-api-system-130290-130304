@@ -4,7 +4,7 @@ Attendee routes: manage attendees per event.
 Business rules:
 - Each attendee email can register only once per event
 - Event capacity cannot be exceeded
-- Only the event owner can remove attendees
+(Note: API is public; no authentication or ownership checks.)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,8 +14,6 @@ from sqlalchemy import func
 from ..core.database import get_db
 from ..models import Event, Attendee
 from ..schemas import AttendeeCreate, AttendeeOut, PaginatedAttendees
-from ..deps import get_current_user
-from ..models import User
 
 router = APIRouter(prefix="/events/{event_id}/attendees", tags=["Attendees"])
 
@@ -105,23 +103,17 @@ def list_attendees(
     "/{attendee_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Remove attendee",
-    description="Remove an attendee from the event. Only the event owner can remove.",
-    responses={403: {"description": "Forbidden"}, 404: {"description": "Not found"}},
+    description="Remove an attendee from the event. Public endpoint.",
+    responses={404: {"description": "Not found"}},
 )
 # PUBLIC_INTERFACE
 def remove_attendee(
     event_id: int,
     attendee_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
-    """Remove an attendee from event; only owner of the event can remove."""
-    event = _get_event_or_404(db, event_id)
-    if event.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to modify attendees for this event",
-        )
+    """Remove an attendee from event (public)."""
+    _get_event_or_404(db, event_id)
 
     attendee = (
         db.query(Attendee)

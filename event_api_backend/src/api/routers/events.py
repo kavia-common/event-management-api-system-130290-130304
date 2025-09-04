@@ -4,7 +4,7 @@ Event routes: CRUD for events with validation and business rules.
 Business rules:
 - end_time must be after start_time
 - capacity must be >= number of existing attendees on update
-- only event owner can update/delete
+(Note: API is public; no authentication or ownership checks.)
 """
 
 from datetime import datetime
@@ -17,8 +17,6 @@ from sqlalchemy import func
 from ..core.database import get_db
 from ..models import Event, Attendee
 from ..schemas import EventCreate, EventOut, EventUpdate, PaginatedEvents
-from ..deps import get_current_user
-from ..models import User
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
@@ -33,15 +31,14 @@ def _validate_event_times(start_time: datetime, end_time: datetime):
     response_model=EventOut,
     status_code=status.HTTP_201_CREATED,
     summary="Create event",
-    description="Create a new event owned by the authenticated user.",
+    description="Create a new event. Public endpoint.",
 )
 # PUBLIC_INTERFACE
 def create_event(
     payload: EventCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
-    """Create a new event after validating time range."""
+    """Create a new event after validating time range (public)."""
     _validate_event_times(payload.start_time, payload.end_time)
     event = Event(
         title=payload.title,
@@ -50,7 +47,8 @@ def create_event(
         start_time=payload.start_time,
         end_time=payload.end_time,
         capacity=payload.capacity,
-        owner_id=current_user.id,
+        # With no users, assign a neutral owner id (0)
+        owner_id=0,
     )
     db.add(event)
     db.commit()
@@ -105,25 +103,19 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
     "/{event_id}",
     response_model=EventOut,
     summary="Update event",
-    description="Update fields of an event. Only the owner can update.",
-    responses={403: {"description": "Forbidden"}, 404: {"description": "Event not found"}},
+    description="Update fields of an event. Public endpoint.",
+    responses={404: {"description": "Event not found"}},
 )
 # PUBLIC_INTERFACE
 def update_event(
     event_id: int,
     payload: EventUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
-    """Update an event, enforcing time and capacity rules and ownership."""
+    """Update an event, enforcing time and capacity rules (public)."""
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to modify this event",
-        )
 
     # Validate times if both provided or one provided (use existing for comparison)
     start_time = payload.start_time or event.start_time
@@ -161,24 +153,18 @@ def update_event(
     "/{event_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete event",
-    description="Delete an event. Only the owner can delete.",
-    responses={403: {"description": "Forbidden"}, 404: {"description": "Event not found"}},
+    description="Delete an event. Public endpoint.",
+    responses={404: {"description": "Event not found"}},
 )
 # PUBLIC_INTERFACE
 def delete_event(
     event_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """Delete an event and its attendees (cascade)."""
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to delete this event",
-        )
 
     db.delete(event)
     db.commit()

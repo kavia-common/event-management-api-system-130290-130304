@@ -5,7 +5,6 @@ from fastapi.responses import JSONResponse
 
 from .core.config import get_settings
 from .core.database import Base, engine
-from .routers import auth as auth_router
 from .routers import events as events_router
 from .routers import attendees as attendees_router
 
@@ -14,14 +13,19 @@ settings = get_settings()
 
 openapi_tags = [
     {"name": "Health", "description": "Health check endpoint"},
-    {"name": "Auth", "description": "User registration and authentication"},
     {"name": "Events", "description": "CRUD operations for events"},
     {"name": "Attendees", "description": "Manage event attendees"},
 ]
 
+# Ensure public API description reflects no authentication requirement
+public_description = (
+    "Public API system for managing events and attendees. "
+    "All endpoints are open; no authentication required."
+)
+
 app = FastAPI(
     title=settings.APP_NAME,
-    description=settings.APP_DESCRIPTION,
+    description=public_description or settings.APP_DESCRIPTION,
     version=settings.APP_VERSION,
     openapi_tags=openapi_tags,
 )
@@ -49,7 +53,6 @@ def health_check():
 
 # API router with prefix
 api_router = APIRouter(prefix=settings.API_PREFIX)
-api_router.include_router(auth_router.router)
 api_router.include_router(events_router.router)
 api_router.include_router(attendees_router.router)
 app.include_router(api_router)
